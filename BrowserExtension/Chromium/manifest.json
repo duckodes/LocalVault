@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "密碼庫 - 本機自動填入",
+  "version": "1.0.0",
+  "description": "透過本機密碼庫，依目前網站網域提供使用者確認後的登入資料填入。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtG8Y83JCQnsc0QiScO3SvnP+QiSKAkcIjJ/Lcbjf8ifUfceGHpBVCndYeh/NQXFMkkfUQyOhsueWBeNVW+OH6y7s7NOwtjr7T6+S8jJYzjap07K+zQKQ8JAYuJzX0a/TwV+32vyUK3i1vZl37vUW2OzXyvfKVJZuSEfiJKIlZm13dPJh7KwRW2SPVd45XAH5EU6kI9dCD8q/gEe2LDa+hQkHdra7wPP3VH4SmZYJQuFsMzcsTuZp4MyrDzxDBbcnAxzt+JZIh6CT43DvkBbMm0fdZryjkuFB4HWPM/wpoIrl/hsTi1ObUlKZSROxEzXUWxvb8HBwIzDLHMljSLtnUQIDAQAB",
+  "permissions": [
+    "activeTab",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "使用密碼庫填入",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  }
+}

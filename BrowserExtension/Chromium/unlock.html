@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>解鎖密碼庫</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="mark" aria-hidden="true">🔒</div>
+      <div>
+        <h1>解鎖密碼庫</h1>
+        <p id="site">請確認網站</p>
+      </div>
+    </header>
+    <form id="unlock-form">
+      <label for="master-password">主密碼</label>
+      <input id="master-password" type="password" autocomplete="current-password" required autofocus>
+      <p id="status" class="status" role="status">主密碼只會送往本機密碼庫，不會輸入到網站。</p>
+      <button id="unlock-button" type="submit">解鎖並回到網站</button>
+    </form>
+    <footer>請勿在共用或不受信任的電腦輸入主密碼。</footer>
+  </main>
+  <script src="unlock.js"></script>
+</body>
+</html>

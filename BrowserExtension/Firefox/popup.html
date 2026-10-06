@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>密碼庫自動填入</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="mark" aria-hidden="true">🔒</div>
+      <div>
+        <h1>密碼庫</h1>
+        <p id="site">正在確認目前網站…</p>
+      </div>
+    </header>
+    <p id="status" class="status" role="status">正在安全連線到本機密碼庫…</p>
+    <section id="credentials" class="credentials" aria-label="符合的登入資料"></section>
+    <footer>只比對完全相同的網站網域；選擇帳號後才會填入。</footer>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

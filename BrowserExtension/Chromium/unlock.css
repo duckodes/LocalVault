@@ -1,0 +1,125 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 340px;
+  margin: 0;
+  color: #172033;
+  background: #f4f6fa;
+  font: 14px "Segoe UI", "Microsoft JhengHei", sans-serif;
+}
+
+main {
+  padding: 18px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e8f0;
+}
+
+.mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 13px;
+  color: white;
+  background: #5468e8;
+  font-size: 19px;
+}
+
+h1 {
+  margin: 0 0 3px;
+  font-size: 17px;
+}
+
+header p,
+footer {
+  margin: 0;
+  color: #7b8496;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.status {
+  margin: 15px 0 10px;
+  color: #59657c;
+  line-height: 1.5;
+}
+
+.status.error {
+  color: #b63848;
+}
+
+.credentials {
+  display: grid;
+  gap: 8px;
+}
+
+.credential {
+  padding: 12px;
+  border: 1px solid #e5e8f0;
+  border-radius: 11px;
+  background: white;
+}
+
+.credential-title {
+  margin: 0 0 4px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.credential-user {
+  margin: 0 0 10px;
+  color: #7b8496;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+button {
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: #5468e8;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #4356d4;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+label {
+  display: block;
+  margin: 12px 0 6px;
+  color: #485166;
+  font-weight: 600;
+}
+
+input[type="password"] {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #dfe3ec;
+  border-radius: 9px;
+  color: #172033;
+  background: white;
+  font: inherit;
+}
+
+footer {
+  margin-top: 14px;
+  line-height: 1.45;
+}
