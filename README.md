@@ -3,7 +3,7 @@
 ##### 啟用 Git LFS + 拉取專案
 ```
 git lfs install
-git lfs clone https://github.com/duckodes/PDF2DOCX.git
+git lfs clone https://github.com/duckodes/LocalVault.git
 ```
 ##### 停用 Git LFS
 ```
