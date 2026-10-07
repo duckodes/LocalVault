@@ -3,7 +3,7 @@
 const extensionApi = typeof browser !== "undefined" ? browser : chrome;
 const statusElement = document.getElementById("status");
 const siteElement = document.getElementById("site");
-const credentialsElement = document.getElementById("credentials");
+const actionsElement = document.getElementById("actions");
 
 function setStatus(message, isError = false) {
   statusElement.textContent = message;
@@ -22,76 +22,20 @@ function sendMessage(message) {
   });
 }
 
-function openUnlock(tabId, url) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = "在密碼庫視窗解鎖";
-  button.addEventListener("click", async () => {
-    button.disabled = true;
-    try {
-      const response = await sendMessage({ type: "open-unlock", tabId, url: new URL(url).origin });
-      if (!response?.ok) throw new Error();
-      setStatus("已開啟安全解鎖視窗。");
-    } catch {
-      setStatus("無法開啟解鎖視窗。", true);
-      button.disabled = false;
-    }
-  });
-  credentialsElement.append(button);
-}
-
-function showCredentials(tabId, url, credentials) {
-  credentialsElement.replaceChildren();
-  if (!credentials.length) {
-    setStatus("此網站沒有完全符合的已儲存密碼。", false);
-    return;
-  }
-
-  setStatus(`找到 ${credentials.length} 筆符合的登入資料。`);
-  for (const credential of credentials) {
-    const card = document.createElement("article");
-    card.className = "credential";
-    const title = document.createElement("p");
-    title.className = "credential-title";
-    title.textContent = credential.title || "未命名項目";
-    const username = document.createElement("p");
-    username.className = "credential-user";
-    username.textContent = credential.username || "未儲存使用者名稱";
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = "填入此帳號";
-    button.addEventListener("click", async () => {
-      button.disabled = true;
-      try {
-        const result = await sendMessage({
-          type: "request-fill",
-          tabId,
-          entryId: credential.id,
-          url
-        });
-        if (!result?.ok) {
-          setStatus("找不到可用的登入欄位；請先點選登入欄位。", true);
-          button.disabled = false;
-          return;
-        }
-        setStatus("已通知網頁填入；請確認後自行登入。", false);
-      } catch {
-        setStatus("填入失敗。請確認目前分頁未重新導向，並重試。", true);
-        button.disabled = false;
-      }
-    });
-    card.append(title, username, button);
-    credentialsElement.append(card);
-  }
+function isSecureOrigin(url) {
+  return url.protocol === "https:"
+    || (url.protocol === "http:" && url.hostname !== ""
+      && (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]"));
 }
 
 async function initialize() {
   try {
     const [tab] = await extensionApi.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id || !tab.url) {
+    if (!Number.isInteger(tab?.id) || !tab.url) {
       setStatus("無法讀取目前分頁。", true);
       return;
     }
+
     const url = new URL(tab.url);
     if (!["http:", "https:"].includes(url.protocol)) {
       setStatus("自動填入只適用於一般 HTTP 或 HTTPS 網頁。", true);
@@ -100,26 +44,69 @@ async function initialize() {
     }
 
     siteElement.textContent = url.hostname;
-    const response = await sendMessage({ type: "lookup", url: url.origin });
-    if (!response?.ok) {
-      if (response?.error === "vault_locked") {
-        setStatus("密碼庫已鎖定。請在網頁欄位的提示中安全解鎖。", true);
-        openUnlock(tab.id, url.origin);
-      } else if (response?.error === "vault_unavailable") {
-        setStatus("密碼庫程式未執行，或瀏覽器橋接尚未安裝。", true);
-      } else if (response?.error === "insecure_origin") {
-        setStatus("為保護密碼，只能在 HTTPS 網站使用（localhost 除外）。", true);
-      } else if (response?.error === "vault_not_created") {
-        setStatus("尚未建立密碼庫，請先開啟密碼庫程式完成設定。", true);
-      } else {
-        setStatus("密碼庫無法處理這個網站要求。", true);
-      }
+    if (!isSecureOrigin(url)) {
+      setStatus("為保護密碼，只能在 HTTPS 網站使用（localhost 除外）。", true);
       return;
     }
-    showCredentials(tab.id, url.origin, response.credentials || []);
+
+    setStatus("帳號只會在你於主程式選定後，才傳送到擴充套件進行填入。");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "在主程式選擇登入資料";
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      setStatus("正在開啟主程式的網站登入選擇頁…");
+      try {
+        const result = await sendMessage({ type: "request-selection", tabId: tab.id });
+        if (result?.ok) {
+          setStatus("已填入所選帳號；請確認後自行登入。");
+        } else {
+          setStatus(getErrorMessage(result?.error), true);
+          button.disabled = false;
+        }
+      } catch {
+        setStatus("無法連線到密碼庫主程式。請確認瀏覽器橋接已安裝。", true);
+        button.disabled = false;
+      }
+    });
+    actionsElement.append(button);
   } catch {
-    setStatus("無法連線到密碼庫。請確認密碼庫程式正在執行，且已完成瀏覽器橋接安裝。", true);
+    setStatus("無法確認目前網站。", true);
   }
+}
+
+function getErrorMessage(error) {
+  if (error === "credential_not_found")
+    return "此網站沒有符合的已儲存登入資料。";
+  if (error === "selection_cancelled")
+    return "已取消選擇，沒有資料傳送到網頁。";
+  if (error === "selection_timeout")
+    return "等待主程式解鎖逾時，請再次按下按鈕。";
+  if (error === "selection_busy")
+    return "另一個網站登入選擇正在處理中，請稍後再試。";
+  if (error === "vault_locked")
+    return "密碼庫仍處於鎖定狀態；請在主程式解鎖後重新按下按鈕。";
+  if (error === "vault_unavailable")
+    return "無法連線到密碼庫主程式；請確認主程式已啟動，或重新安裝瀏覽器橋接。";
+  if (error === "invalid_request")
+    return "瀏覽器橋接收到無效要求；請重新啟動瀏覽器後再試。";
+  if (error === "bridge_not_installed")
+    return "找不到瀏覽器橋接設定；請重新執行 install-browser-bridge.cmd。";
+  if (error === "bridge_executable_mismatch")
+    return "瀏覽器橋接版本或路徑不一致；請重新建置並安裝瀏覽器橋接。";
+  if (error === "browser_process_unverified")
+    return "無法確認請求由支援的瀏覽器啟動；請重新啟動瀏覽器後再試。";
+  if (error === "bridge_client_unverified")
+    return "無法驗證瀏覽器橋接程序；請重新啟動密碼庫與瀏覽器後再試。";
+  if (error === "insecure_origin")
+    return "為保護密碼，只能在 HTTPS 網站使用（localhost 除外）。";
+  if (error === "vault_not_created")
+    return "尚未建立密碼庫，請先開啟密碼庫程式完成設定。";
+  if (error === "page_changed")
+    return "目前分頁已變更，為保護密碼未填入任何資料。";
+  if (error === "fill_failed")
+    return "找不到可用的登入欄位；請先點選登入欄位後重試。";
+  return "密碼庫主程式無法完成選擇。請確認密碼庫已解鎖。";
 }
 
 initialize();

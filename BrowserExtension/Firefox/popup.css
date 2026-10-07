@@ -56,29 +56,9 @@ footer {
   color: #b63848;
 }
 
-.credentials {
+.actions {
   display: grid;
   gap: 8px;
-}
-
-.credential {
-  padding: 12px;
-  border: 1px solid #e5e8f0;
-  border-radius: 11px;
-  background: white;
-}
-
-.credential-title {
-  margin: 0 0 4px;
-  font-weight: 650;
-  overflow-wrap: anywhere;
-}
-
-.credential-user {
-  margin: 0 0 10px;
-  color: #7b8496;
-  font-size: 12px;
-  overflow-wrap: anywhere;
 }
 
 button {

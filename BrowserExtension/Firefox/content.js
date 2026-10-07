@@ -20,13 +20,8 @@
     .site { margin:2px 0 0; color:#7b8496; font-size:11px; overflow-wrap:anywhere; }
     .status { margin:10px 0; color:#59657c; line-height:1.45; overflow-wrap:anywhere; }
     .error { color:#b63848; }
-    .item { margin-top:8px; padding:10px; border:1px solid #e8eaf1; border-radius:10px; }
-    .title { margin:0 0 3px; font-weight:650; overflow-wrap:anywhere; }
-    .username { margin:0 0 9px; color:#7b8496; font-size:12px; overflow-wrap:anywhere; }
     button { width:100%; padding:8px 10px; border:0; border-radius:8px; color:white; background:#5468e8; font:inherit; font-weight:600; cursor:pointer; }
     button:hover { background:#4356d4; }
-    button.secondary { color:#4659d4; background:#eef0ff; }
-    button + button { margin-top:7px; }
     .footer { margin:11px 0 0; color:#8a92a2; font-size:10px; line-height:1.4; }
   `;
   const panel = document.createElement("section");
@@ -36,19 +31,16 @@
   shadow.append(style, panel);
 
   let activeField = null;
-  let requestSequence = 0;
-  let lastLookupAt = 0;
-
   const sendMessage = (message) => {
     if (typeof browser !== "undefined")
       return browser.runtime.sendMessage(message);
 
     return new Promise((resolve, reject) => {
-    extensionApi.runtime.sendMessage(message, (response) => {
-      const error = extensionApi.runtime.lastError;
-      if (error) reject(new Error(error.message));
-      else resolve(response);
-    });
+      extensionApi.runtime.sendMessage(message, response => {
+        const error = extensionApi.runtime.lastError;
+        if (error) reject(new Error(error.message));
+        else resolve(response);
+      });
     });
   };
 
@@ -62,6 +54,12 @@
       top = Math.max(8, rect.top - height - 8);
     host.style.left = `${left}px`;
     host.style.top = `${top}px`;
+  }
+
+  function isSecureOrigin() {
+    return location.protocol === "https:"
+      || (location.protocol === "http:"
+        && (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname === "[::1]"));
   }
 
   function show(message, options = {}) {
@@ -84,49 +82,17 @@
     status.textContent = message;
     panel.replaceChildren(head, status);
 
-    for (const credential of options.credentials || []) {
-      const item = document.createElement("article");
-      item.className = "item";
-      const itemTitle = document.createElement("p");
-      itemTitle.className = "title";
-      itemTitle.textContent = credential.title || "未命名項目";
-      const username = document.createElement("p");
-      username.className = "username";
-      username.textContent = credential.username || "未儲存使用者名稱";
-      const fill = document.createElement("button");
-      fill.type = "button";
-      fill.textContent = "填入此帳號";
-      fill.addEventListener("mousedown", event => event.preventDefault());
-      fill.addEventListener("click", async () => {
-        fill.disabled = true;
-        try {
-          const response = await sendMessage({
-            type: "request-fill",
-            entryId: credential.id,
-            url: location.origin
-          });
-          if (!response?.ok)
-            show("密碼庫已鎖定或無法填入，請重新點選登入欄。", { error: true });
-        } catch {
-          show("無法從本機密碼庫取得密碼。", { error: true });
-        }
-      });
-      item.append(itemTitle, username, fill);
-      panel.append(item);
-    }
-
-    if (options.locked) {
-      const unlock = document.createElement("button");
-      unlock.className = "secondary";
-      unlock.type = "button";
-      unlock.textContent = "在密碼庫視窗解鎖";
-      unlock.addEventListener("mousedown", event => event.preventDefault());
-      unlock.addEventListener("click", openUnlockWindow);
-      panel.append(unlock);
+    if (options.selectionButton) {
+      const select = document.createElement("button");
+      select.type = "button";
+      select.textContent = "在主程式選擇登入資料";
+      select.addEventListener("mousedown", event => event.preventDefault());
+      select.addEventListener("click", requestCredentialSelection);
+      panel.append(select);
     }
     const footer = document.createElement("p");
     footer.className = "footer";
-    footer.textContent = "僅比對目前網站網域。選擇帳號後才會填入，不會自動送出。";
+    footer.textContent = "帳號僅會在你於主程式選定後傳送到擴充套件填入；不會自動送出。";
     panel.append(footer);
     host.style.display = "block";
     positionPanel(activeField || document.activeElement);
@@ -199,61 +165,70 @@
     return true;
   }
 
-  async function openUnlockWindow() {
+  async function requestCredentialSelection(event) {
+    const button = event.currentTarget;
+    button.disabled = true;
     try {
       const response = await sendMessage({
-        type: "open-unlock",
+        type: "request-selection",
         url: location.origin
       });
-      if (!response?.ok)
-        show("無法開啟密碼庫解鎖視窗。", { error: true });
-    } catch {
-      show("無法開啟密碼庫解鎖視窗。", { error: true });
-    }
-  }
-
-  async function lookup() {
-    const sequence = ++requestSequence;
-    try {
-      const response = await sendMessage({ type: "lookup", url: location.origin });
-      if (sequence !== requestSequence || !activeField?.isConnected)
+      if (!response?.ok) {
+        show(getSelectionError(response?.error), { error: true, selectionButton: true });
         return;
-      if (response?.ok) {
-        if (response.credentials?.length)
-          show(`找到 ${response.credentials.length} 筆符合的帳號。`, { credentials: response.credentials });
-        else
-          show("這個網站目前沒有符合的密碼。");
-      } else if (response?.error === "vault_locked") {
-        show("密碼庫已鎖定。可在獨立視窗輸入主密碼解鎖。", { locked: true });
-      } else if (response?.error === "vault_unavailable") {
-        show("密碼庫程式未在背景執行，請先啟動密碼庫。", { error: true });
-      } else if (response?.error === "insecure_origin") {
-        show("為保護密碼，只能在 HTTPS 網站使用（localhost 除外）。", { error: true });
-      } else if (response?.error === "vault_not_created") {
-        show("尚未建立密碼庫，請先開啟密碼庫程式完成設定。", { error: true });
-      } else {
-        show("密碼庫無法處理目前網站。", { error: true });
       }
     } catch {
-      if (sequence === requestSequence)
-        show("無法連線到本機密碼庫。請確認密碼庫正在背景執行。", { error: true });
+      show("無法連線到密碼庫主程式。請確認瀏覽器橋接已安裝。", { error: true, selectionButton: true });
     }
   }
 
-  function scheduleLookup(field) {
+  function getSelectionError(error) {
+    if (error === "credential_not_found")
+      return "此網站沒有符合的已儲存登入資料。";
+    if (error === "selection_cancelled")
+      return "已取消選擇，沒有資料傳送到網頁。";
+    if (error === "selection_timeout")
+      return "等待主程式解鎖逾時，請再次按下按鈕。";
+    if (error === "selection_busy")
+      return "另一個網站登入選擇正在處理中，請稍後再試。";
+    if (error === "vault_locked")
+      return "密碼庫仍處於鎖定狀態；請在主程式解鎖後重新按下按鈕。";
+    if (error === "vault_unavailable")
+      return "無法連線到密碼庫主程式；請確認主程式已啟動，或重新安裝瀏覽器橋接。";
+    if (error === "invalid_request")
+      return "瀏覽器橋接收到無效要求；請重新啟動瀏覽器後再試。";
+    if (error === "bridge_not_installed")
+      return "找不到瀏覽器橋接設定；請重新執行 install-browser-bridge.cmd。";
+    if (error === "bridge_executable_mismatch")
+      return "瀏覽器橋接版本或路徑不一致；請重新建置並安裝瀏覽器橋接。";
+    if (error === "browser_process_unverified")
+      return "無法確認請求由支援的瀏覽器啟動；請重新啟動瀏覽器後再試。";
+    if (error === "bridge_client_unverified")
+      return "無法驗證瀏覽器橋接程序；請重新啟動密碼庫與瀏覽器後再試。";
+    if (error === "insecure_origin")
+      return "為保護密碼，只能在 HTTPS 網站使用（localhost 除外）。";
+    if (error === "vault_not_created")
+      return "尚未建立密碼庫，請先開啟密碼庫程式完成設定。";
+    if (error === "page_changed")
+      return "目前分頁已變更，為保護密碼未填入任何資料。";
+    if (error === "fill_failed")
+      return "找不到可用的登入欄位；請先重新點選登入欄位。";
+    return "密碼庫主程式無法完成選擇。請確認密碼庫已解鎖。";
+  }
+
+  function showPrompt(field) {
     activeField = field;
-    const now = Date.now();
-    if (now - lastLookupAt < 350)
+    if (!isSecureOrigin()) {
+      show("為保護密碼，只能在 HTTPS 網站使用（localhost 除外）。", { error: true });
       return;
-    lastLookupAt = now;
-    show("正在查詢符合的登入資料…");
-    void lookup();
+    }
+    show("按下按鈕後，主程式才會顯示符合此網站的登入資料。", { selectionButton: true });
   }
 
   document.addEventListener("focusin", event => {
     const target = event.target;
     if (isLoginField(target)) {
-      scheduleLookup(target);
+      showPrompt(target);
     } else if (!host.contains(target)) {
       hide();
     }
@@ -292,11 +267,6 @@
       return false;
     }
 
-    if (message?.type === "vault-unlocked") {
-      lastLookupAt = 0;
-      if (activeField?.isConnected)
-        void lookup();
-    }
     return false;
   });
 })();

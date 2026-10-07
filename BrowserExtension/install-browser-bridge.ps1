@@ -5,10 +5,22 @@ if (-not (Test-Path -LiteralPath $hostSource -PathType Leaf)) {
     throw "Native host executable not found. Run build-release.cmd first."
 }
 
+$applicationPath = Join-Path (Split-Path -Parent $PSScriptRoot) "LocalVault.exe"
+if (-not (Test-Path -LiteralPath $applicationPath -PathType Leaf)) {
+    throw "LocalVault.exe was not found beside the BrowserExtension folder. Run the installer from a password vault output folder."
+}
+
 $installDirectory = Join-Path $env:LOCALAPPDATA "LocalVault\BrowserBridge"
-$hostPath = Join-Path $installDirectory "LocalVault.BrowserHost.exe"
+$hostPath = [System.IO.Path]::GetFullPath($hostSource)
 New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
-Copy-Item -LiteralPath $hostSource -Destination $hostPath -Force
+[System.IO.File]::WriteAllText(
+    (Join-Path $installDirectory "LocalVault.exe.path"),
+    $applicationPath,
+    [System.Text.UTF8Encoding]::new($false))
+[System.IO.File]::WriteAllText(
+    (Join-Path $installDirectory "LocalVault.BrowserHost.exe.path"),
+    $hostPath,
+    [System.Text.UTF8Encoding]::new($false))
 
 $chromiumManifest = @{
     name = "com.localvault.passwords"
@@ -43,6 +55,11 @@ foreach ($registryPath in $chromiumBrowsers) {
 $firefoxRegistryPath = "HKCU:\Software\Mozilla\NativeMessagingHosts\com.localvault.passwords"
 New-Item -Path $firefoxRegistryPath -Force | Out-Null
 Set-Item -Path $firefoxRegistryPath -Value $firefoxManifestPath
+
+$oldHostPath = Join-Path $installDirectory "LocalVault.BrowserHost.exe"
+if (Test-Path -LiteralPath $oldHostPath -PathType Leaf) {
+    Remove-Item -LiteralPath $oldHostPath -Force
+}
 
 Write-Host ""
 Write-Host "Native messaging bridge installed for Chrome, Edge, Brave, and Firefox."
